@@ -1,5 +1,7 @@
 import java.nio.file.Paths;
 import java.util.Scanner;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import javax.swing.JFrame;
 
@@ -69,11 +71,20 @@ public class Mapa_SP2021 {
 		JFrame okno = new JFrame();
 		okno.setTitle("Semestralni prace - Lukas Runt - A20B0226P");
 		
-		okno.add(new DrawingPanel());//pridani komponenty
+		DrawingPanel panel = new DrawingPanel();
+		okno.add(panel);//pridani komponenty
 		okno.pack(); //udela resize okna dle komponent
 		
 		okno.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);//skonceni po zavreni okna
 		okno.setLocationRelativeTo(null);//vycentrovat na obrazovce
 		okno.setVisible(true);
+		
+		Timer tm = new Timer();
+		tm.schedule(new TimerTask() {
+			@Override
+			public void run() {
+				panel.repaint();
+			}
+		}, 0, 20);
 	}
 }

@@ -7,6 +7,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.Line2D;
+import java.awt.geom.Line2D.Double;
 import java.awt.image.BufferedImage;
 
 import javax.swing.JPanel;
@@ -25,6 +26,12 @@ public class DrawingPanel extends JPanel {
 	private final int VELIKOST_TEXTU = 20;
 	private BufferedImage obrazek = new BufferedImage(Mapa_SP2021.sirka, Mapa_SP2021.vyska, BufferedImage.TYPE_3BYTE_BGR);
 	private int[] paleta;
+	private int velikostOkrajeX = 0;
+	private int velikostOkrajeY = 0;
+	private double aktualVelikostObrX = 0;
+	private double aktualVelikostObrY = 0;
+	private boolean[] pravdivostniTabulka;
+	private int hodnotaMin;
 	
 	/**
 	 * Urcuje pocetecni velikost okna, tak aby mela sirku alespon 800px a alespon vysku 600px,
@@ -34,7 +41,6 @@ public class DrawingPanel extends JPanel {
 		int Width = 800;
 		int Height = 600;
 		double pomerStran = (double)Mapa_SP2021.sirka/Mapa_SP2021.vyska;
-		//System.out.println("Pomer Stran: " + pomerStran);
 		//tato podminka zaruci otevreni okna v co nejlepsi velikosti
 		if(pomerStran < POZADOVANY_POMER) {
 			if(pomerStran > 1) {
@@ -50,34 +56,51 @@ public class DrawingPanel extends JPanel {
 			Height = (int)(Width / pomerStran);
 		}
 		this.setPreferredSize(new Dimension(Width, Height));
-		makePalette(10, 220);
+		makePalette();
+		maximum = getMax(Mapa_SP2021.data);
+		minimum = getMin(Mapa_SP2021.data);
+		maxStoupani = getMaxStoupani(Mapa_SP2021.data);
 	}
 	
 	/**
 	 * Metoda meni paletu barev
-	 * @param min
-	 * @param max
 	 */
-	private void makePalette(int min, int max) {
+	private void makePalette() {
 		paleta = new int [265];
 		int r;
 		int g;
 		int b;
 		for(int i = 0; i < paleta.length;i++) {
-			if (i <= min) {
-				r = 0;
-				b = 255 - i;
-				g = 255 - i/3;
-			}
-			else if (i >= max) {
-				r = 200-i/4;
+			if(i <= 50) {
+				b = 250 - (4 * i);
+				r = i;
+				g = 3 * i;
+			} /*else if(i == 50){
+				b = 255;
+				r = 255;
+				g = 255;
+			}*/
+			else if(i <= 100 && i > 50) {
+				b = 50;
+				r = 50 + (3 * (i - 50));
+				g = 150 + (2* (i - 50));
+			} else if(i > 100 && i <= 150) {
+				b = 50;
+				r = 200 + (i - 100);
+				g = 250; 
+			} else if(i > 150 && i <=200) {
+				b = 50 - (i - 150);
+				r = 250;
+				g = 250 - (i - 150);
+			} else if(i > 200 && i <= 250) {
 				b = 0;
-				g = 200-(int)(i/2.5);
-			}
+				r = 250 - (int)(3*(i - 200));
+				g = 200 - (int)(3*(i - 200));
+			} 
 			else {
-				r =(int)(i/1.5);
-				b = Math.max(255 - i*2, 0);
-				g = 255 -(int)(i/1.5);
+			b = 0;
+			r = 0;
+			g = 0;
 			}
 			paleta[i] = (r << 16) | (g << 8) | (b << 0);
 		}
@@ -88,20 +111,26 @@ public class DrawingPanel extends JPanel {
 		super.paint(g);
 		Graphics2D g2 = (Graphics2D)g;
 		
-		maximum = getMax(Mapa_SP2021.data);
-		minimum = getMin(Mapa_SP2021.data);
-		maxStoupani = getMaxStoupani(Mapa_SP2021.data);
-		
 		createPicture(Mapa_SP2021.data);
 		drawPicture(g2, this.getWidth(), this.getHeight());
 		
-		//System.out.println("Sirka: " + this.getWidth());
-		//System.out.println("Vyska: " + this.getHeight());
+		//System.out.println("Sirka: " + this.getWidth() + ", Obr: " + obrazek.getWidth() * scale);
+		//System.out.println("Vyska: " + this.getHeight() + ", Obr: " + obrazek.getHeight() * scale);
+		
+		//kresleni vrstevnic
+		int a = hodnotaMin;
+		while(a % 50 != 0) {
+			a++;
+		}
+		while(a <= Mapa_SP2021.kontrast) {
+			pravdivostniTabulka = vetsiNez(a);
+			drawVrstevnice(g2);
+			a += 50;
+		}
 		
 		drawArrow(maximum % Mapa_SP2021.sirka, (int)(maximum / Mapa_SP2021.sirka), "Max. prevyseni", g2);
 		drawArrow(minimum % Mapa_SP2021.sirka, (int)(minimum / Mapa_SP2021.sirka), "Min. prevyseni", g2);
 		drawArrow(maxStoupani % Mapa_SP2021.sirka, (int)(maxStoupani / Mapa_SP2021.sirka), "Max. stoupani", g2);
-		
 	}
 	
 	/**
@@ -133,7 +162,7 @@ public class DrawingPanel extends JPanel {
 		double konst = 1;
 		int kontrastPom = Mapa_SP2021.kontrast;
 		while(kontrastPom > 255) {  
-			konst += 0.1; //pricitam 0.1, kvuli co nejmensim krokum 
+			konst += 0.8; //pricitam 0.1, kvuli co nejmensim krokum 
 			kontrastPom = (int)(Mapa_SP2021.kontrast / konst);
 		}
 		for (int i = 0; i < data.length; i++) {
@@ -153,14 +182,14 @@ public class DrawingPanel extends JPanel {
 		g2.setColor(Color.BLACK);
 		g2.fillRect(0, 0, W, H);
 		
-		
 		int iW = obrazek.getWidth();
 		int iH = obrazek.getHeight();
 		double scaleX = ((double)W) / iW; //Kolikrat se obrazek zvetsuje v ose X 
 		double scaleY = ((double)H) / iH; //Kolikrat se obrazek zvetsuje v ose Y
 		scale = Math.min(scaleX, scaleY);
 		
-		
+		aktualVelikostObrX = obrazek.getWidth() * scale;
+		aktualVelikostObrY = obrazek.getHeight() * scale;
 		
 		int niW = (int)(iW * scale); //nova sirka obrazku
 		int niH = (int)(iH * scale); //nova vyska obrazku
@@ -197,6 +226,7 @@ public class DrawingPanel extends JPanel {
 		for(int i = 0; i < data.length; i++) {
 			if(data[i] <= data[min]) {
 				min = i;
+				hodnotaMin = data[i];
 			}
 		}
 		return min;
@@ -244,6 +274,8 @@ public class DrawingPanel extends JPanel {
 		g2.setStroke(new BasicStroke(3, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
 		g2.setFont(new Font("Calibri", Font.BOLD, VELIKOST_TEXTU));
 		FontMetrics font = g2.getFontMetrics();
+		int textX;
+		int textY;
 		
 		x1 = (x1*scale) + startX;
 		y1 = (y1*scale) + startY;
@@ -278,40 +310,129 @@ public class DrawingPanel extends JPanel {
 		g2.draw(new Line2D.Double(c_x + v_x, c_y + v_y, x1, y1));
 		g2.draw(new Line2D.Double(c_x - v_x, c_y - v_y, x1, y1));
 		//-------------------text---------------------------------------------
+		velikostOkrajeY = (int)(this.getHeight()-aktualVelikostObrY)/2;
+		velikostOkrajeX = (int)(this.getWidth()-aktualVelikostObrX)/2;
 		if(u_y < 0) {
-			if(textVObraze(u_y, y1) == true) {
-				g2.drawString(text,(int)(x2 - font.stringWidth(text)/2), (int)(y2 + 15));
+			if(textVObrazeY(u_y, y1) == true) {
+				textY = (int)(y2 + 15);
 			}
 			else {
-				g2.drawString(text,(int)(x2 - font.stringWidth(text)/2), this.getHeight() - 2);
+				textY = this.getHeight()/2 + (int)(aktualVelikostObrY)/2 - 2;
 			}
-		} else {
-			if(textVObraze(u_y, y1) == true) {
-				g2.drawString(text,(int)(x2 - font.stringWidth(text)/2), (int)(y2 - 5));
+		}
+		else {
+			if(textVObrazeY(u_y, y1) == true) {
+				textY = (int)(y2 - 5);
 			}
 			else {
-				g2.drawString(text,(int)(x2 - font.stringWidth(text)/2), VELIKOST_TEXTU);
+				textY = velikostOkrajeY + VELIKOST_TEXTU;
 			}
-		} 
+		}
+		if(u_x < 0) {
+			if(textVObrazeX(u_x, x1, font.stringWidth(text)/2)) {
+				textX = (int)(x2 - font.stringWidth(text)/2);
+			}
+			else {
+				textX = (int)(this.getWidth() - velikostOkrajeX - font.stringWidth(text));
+			}
+		}
+		else {
+			if(textVObrazeX(u_x, x1, font.stringWidth(text)/2)) {
+				textX = (int)(x2 - font.stringWidth(text)/2);
+			}
+			else {
+				textX = velikostOkrajeX;
+			}
+		}
+		g2.drawString(text,textX, textY);
 	}
 	
 	/**
 	 * Metoda zjistuje zda se text vejde do obrazu v ose y
-	 * @param u_y vektor y
+	 * @param u_y vektor sipky y
 	 * @param y pozice na ose y
 	 * @return true - text se cely vejde do obrazu, false - sipka se nevejde do obrazu
 	 */
-	private boolean textVObraze(double u_y, double y) {
+	private boolean textVObrazeY(double u_y, double y) {
 		if(u_y > 0) {
-			if(this.getHeight() > (u_y * DELKA_SIPKY + VELIKOST_TEXTU + (this.getHeight() - y))) {
+			if(aktualVelikostObrY > (u_y * DELKA_SIPKY + VELIKOST_TEXTU + (aktualVelikostObrY - y) + velikostOkrajeY)) {
 				return true;
 			}
 		}
 		else {
-			if(this.getHeight() > (Math.abs(u_y) * DELKA_SIPKY + VELIKOST_TEXTU + y)){
+			if(aktualVelikostObrY > (Math.abs(u_y) * DELKA_SIPKY + VELIKOST_TEXTU - velikostOkrajeY + y)){
 				return true;
 			}
 		}
 		return false;
+	}
+	
+	/**
+	 * Metoda zjistuje zda se text vejde do obrazu v ose x
+	 * @param u_x vektor sipky x
+	 * @param x pozice na ose x
+	 * @param stringWidth delka textu v pixelech
+	 * @return true - text se vejde, false text se nevejde
+	 */
+	private boolean textVObrazeX(double u_x, double x, double stringWidth) {
+		if(u_x > 0) {
+			if(0 < x - (u_x * DELKA_SIPKY) - stringWidth - velikostOkrajeX) {
+				return true;
+			}
+		}
+		else {
+			if(this.getWidth() - velikostOkrajeX > x + (Math.abs(u_x) * DELKA_SIPKY) + stringWidth) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * 
+	 * @param nadmorskaVyska vyska se kterou se budou porovnavat ostatni vysky
+	 * @return dvojrozmerne pravdivostni pole
+	 */
+	private boolean[] vetsiNez(int nadmorskaVyska){
+		boolean[] pole = new boolean[Mapa_SP2021.data.length];
+		for(int i = 0; i < Mapa_SP2021.data.length; i++) {
+			if(Mapa_SP2021.data[i] < nadmorskaVyska) {
+				pole[i] = false;
+			}
+			else {
+				pole[i] = true;
+			}
+		}
+		return pole;
+	}
+	
+	private void drawVrstevnice(Graphics2D g2) {
+		g2.setColor(Color.WHITE);
+		g2.setStroke(new BasicStroke(1, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
+		for(int i = 0; i < Mapa_SP2021.vyska - 1; i++) {
+			for(int j = 0; j < Mapa_SP2021.sirka - 1; j++) {
+				if(pravdivostniTabulka[i * Mapa_SP2021.sirka + j] != pravdivostniTabulka[(i * Mapa_SP2021.sirka + j) + 1]) {
+					double y1 = ((i + 1) * scale) + velikostOkrajeY;
+					double y2 = ((i) * scale) + velikostOkrajeY;
+					double x1 = (j * scale) + velikostOkrajeX;
+					double x2 = (j * scale) + velikostOkrajeX;
+					Line2D line1 = new Line2D.Double(x1, y1, x2, y2);
+					g2.draw(line1);
+				}
+			}
+		}
+		
+		for(int i = 0; i < Mapa_SP2021.sirka; i++) {
+			for(int j = 1; j < Mapa_SP2021.vyska; j++) {
+				if(pravdivostniTabulka[i + j * Mapa_SP2021.sirka] != pravdivostniTabulka[i + (j-1) * Mapa_SP2021.sirka]){
+					double x1 = ((i - 1) * scale) + velikostOkrajeX;
+					double x2 = ((i) * scale) + velikostOkrajeX;
+					double y1 = (j * scale) + velikostOkrajeY;
+					double y2 = (j * scale) + velikostOkrajeY;
+					Line2D line2 = new Line2D.Double(x1, y1, x2, y2);
+					g2.draw(line2);
+				}
+			}
+		}
 	}
 }
