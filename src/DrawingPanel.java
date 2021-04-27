@@ -6,13 +6,23 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
-import java.awt.geom.Line2D.Double;
 import java.awt.image.BufferedImage;
-
+import java.awt.print.PageFormat;
+import java.awt.print.Printable;
+import java.awt.print.PrinterException;
 import javax.swing.JPanel;
 
-public class DrawingPanel extends JPanel {
+/**
+ * Trida {@code DrawingPanel} kresli barevnou mapu s vrstevnicemi,
+ * mapa reaguje na kliknuti leveho tlacitka mysi, v miste kliknuti zobtazi bod a jeho nadmorskou vysku
+ * @author Lukas Runt 
+ * @version 2.0 (2021-04-27)
+ */
+public class DrawingPanel extends JPanel implements Printable{
 
 	private final double POZADOVANY_POMER = (double)4/3; //optimalni velikost 800*600 -> pomer 4:3
 	private int maximum;
@@ -30,8 +40,17 @@ public class DrawingPanel extends JPanel {
 	private int velikostOkrajeY = 0;
 	private double aktualVelikostObrX = 0;
 	private double aktualVelikostObrY = 0;
+	private double klikX = -1;
+	private double klikY = -1;
+	private int nadmorskaVyska;
 	private boolean[] pravdivostniTabulka;
 	private int hodnotaMin;
+	private int hodnotaMax;
+	private double pomerStran;
+	private int[][] pole2D;
+	private int[] vrstevnice;
+	private int zviraznenaVrstevnice = 0;
+	private double konst;
 	
 	/**
 	 * Urcuje pocetecni velikost okna, tak aby mela sirku alespon 800px a alespon vysku 600px,
@@ -40,7 +59,7 @@ public class DrawingPanel extends JPanel {
 	public DrawingPanel() {
 		int Width = 800;
 		int Height = 600;
-		double pomerStran = (double)Mapa_SP2021.sirka/Mapa_SP2021.vyska;
+		pomerStran = (double)Mapa_SP2021.sirka/Mapa_SP2021.vyska;
 		//tato podminka zaruci otevreni okna v co nejlepsi velikosti
 		if(pomerStran < POZADOVANY_POMER) {
 			if(pomerStran > 1) {
@@ -60,6 +79,47 @@ public class DrawingPanel extends JPanel {
 		maximum = getMax(Mapa_SP2021.data);
 		minimum = getMin(Mapa_SP2021.data);
 		maxStoupani = getMaxStoupani(Mapa_SP2021.data);
+		pole2D = pole2D();
+		
+		this.addMouseListener(new MouseListener() {
+			
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void mousePressed(MouseEvent e) {
+				if(e.getX() > velikostOkrajeX && e.getX() < velikostOkrajeX + Mapa_SP2021.sirka * scale) {
+					if(e.getY() > velikostOkrajeY && e.getY() < velikostOkrajeY + Mapa_SP2021.vyska * scale) {
+						klikX = (e.getX() - velikostOkrajeX) / scale;
+						klikY = (e.getY() - velikostOkrajeY)/ scale;
+						//int nadmorskaVyska = Mapa_SP2021.data[(int)((e.getX() - velikostOkrajeX) / scale  + ((((e.getY() - velikostOkrajeY)/ scale) * Mapa_SP2021.sirka)))];
+						nadmorskaVyska = pole2D[(int)((e.getX() - velikostOkrajeX) / scale)][(int)((e.getY() - velikostOkrajeY)/ scale)];						
+						zviraznenaVrstevnice = najdiNejblizsi(nadmorskaVyska);
+					}
+				}
+			}
+			
+			@Override
+			public void mouseExited(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+		});
 	}
 	
 	/**
@@ -75,12 +135,7 @@ public class DrawingPanel extends JPanel {
 				b = 250 - (4 * i);
 				r = i;
 				g = 3 * i;
-			} /*else if(i == 50){
-				b = 255;
-				r = 255;
-				g = 255;
-			}*/
-			else if(i <= 100 && i > 50) {
+			} else if(i <= 100 && i > 50) {
 				b = 50;
 				r = 50 + (3 * (i - 50));
 				g = 150 + (2* (i - 50));
@@ -118,15 +173,35 @@ public class DrawingPanel extends JPanel {
 		//System.out.println("Vyska: " + this.getHeight() + ", Obr: " + obrazek.getHeight() * scale);
 		
 		//kresleni vrstevnic
+		vrstevnice = new int[Math.round((hodnotaMax - hodnotaMin)/50) + 1];
 		int a = hodnotaMin;
-		while(a % 50 != 0) {
+		int i = 0;
+		while(a % 50 != 0 || a == 0) {
 			a++;
 		}
-		while(a <= Mapa_SP2021.kontrast) {
-			pravdivostniTabulka = vetsiNez(a);
-			drawVrstevnice(g2);
-			a += 50;
+		g2.setColor(Color.WHITE);
+		g2.setStroke(new BasicStroke(1, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
+		while(a <= hodnotaMax) {
+			vrstevnice[i] = a;
+			if(a != zviraznenaVrstevnice) {
+				pravdivostniTabulka = vetsiNez(a);
+				drawVrstevnice(g2, a);
+				i++;
+				a += 50;
+			}
+			else {
+				g2.setColor(Color.MAGENTA);
+				g2.setStroke(new BasicStroke(2, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
+				pravdivostniTabulka = vetsiNez(a);
+				drawVrstevnice(g2, a);
+				g2.setColor(Color.WHITE);
+				g2.setStroke(new BasicStroke(1, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
+				a += 50;
+				i++;
+			}
 		}
+		
+		drawBod(g2);
 		
 		drawArrow(maximum % Mapa_SP2021.sirka, (int)(maximum / Mapa_SP2021.sirka), "Max. prevyseni", g2);
 		drawArrow(minimum % Mapa_SP2021.sirka, (int)(minimum / Mapa_SP2021.sirka), "Min. prevyseni", g2);
@@ -159,10 +234,10 @@ public class DrawingPanel extends JPanel {
 	 */
 	public int[] upraveniHodnot(int[] data) {
 		int[] vysledek = new int[data.length];
-		double konst = 1;
+		konst = 1;
 		int kontrastPom = Mapa_SP2021.kontrast;
 		while(kontrastPom > 255) {  
-			konst += 0.8; //pricitam 0.1, kvuli co nejmensim krokum 
+			konst += 0.8; //pricitam 0.8, aby to bylo hezke :-)
 			kontrastPom = (int)(Mapa_SP2021.kontrast / konst);
 		}
 		for (int i = 0; i < data.length; i++) {
@@ -179,7 +254,7 @@ public class DrawingPanel extends JPanel {
 	 */
 	private void drawPicture(Graphics2D g2, int W, int H) {
 		//Cerny obdelnik v pozadi
-		g2.setColor(Color.BLACK);
+		g2.setColor(Color.WHITE);
 		g2.fillRect(0, 0, W, H);
 		
 		int iW = obrazek.getWidth();
@@ -200,6 +275,23 @@ public class DrawingPanel extends JPanel {
 				
 		g2.drawImage(obrazek, startX, startY, niW, niH, null);
 	}
+	
+	private void drawBod(Graphics2D g2) {
+		if(klikX >= 0 && klikY >= 0) {
+			Ellipse2D bod = new Ellipse2D.Double(klikX * scale + velikostOkrajeX, klikY * scale + velikostOkrajeY, 5, 5);
+			g2.setColor(Color.RED);
+			g2.fill(bod);
+			g2.setColor(Color.BLACK);
+			g2.draw(bod);
+			g2.setFont(new Font("Calibri", Font.BOLD, 20));
+			FontMetrics font = g2.getFontMetrics();
+			g2.drawString(nadmorskaVyska + "",(int)(klikX * scale + velikostOkrajeX - font.stringWidth(nadmorskaVyska + "")/2), (int)(klikY * scale + velikostOkrajeY));
+			g2.setColor(Color.RED);
+			g2.setFont(new Font("Calibri", Font.PLAIN, 20));
+			//FontMetrics font = g2.getFontMetrics();
+			g2.drawString(nadmorskaVyska + "",(int)(klikX * scale + velikostOkrajeX - font.stringWidth(nadmorskaVyska + "")/2), (int)(klikY * scale + velikostOkrajeY));
+		}
+	}
 
 	/**
 	 * Vraci index nejvyssiho bodu, kdyz vice stejne vysokych budu vraci posledni
@@ -213,6 +305,7 @@ public class DrawingPanel extends JPanel {
 				max = i;
 			}
 		}
+		hodnotaMax = data[max];
 		return max;
 	}
 	
@@ -406,9 +499,12 @@ public class DrawingPanel extends JPanel {
 		return pole;
 	}
 	
-	private void drawVrstevnice(Graphics2D g2) {
-		g2.setColor(Color.WHITE);
-		g2.setStroke(new BasicStroke(1, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
+	/**
+	 * Metoda nakresli vrstevnice
+	 * @param g2 grafika
+	 * @param porovnani madmorska vyska
+	 */
+	private void drawVrstevnice(Graphics2D g2, int porovnani) {
 		for(int i = 0; i < Mapa_SP2021.vyska - 1; i++) {
 			for(int j = 0; j < Mapa_SP2021.sirka - 1; j++) {
 				if(pravdivostniTabulka[i * Mapa_SP2021.sirka + j] != pravdivostniTabulka[(i * Mapa_SP2021.sirka + j) + 1]) {
@@ -434,5 +530,90 @@ public class DrawingPanel extends JPanel {
 				}
 			}
 		}
+	}
+	
+	/**
+	 * Metoda vytvori dvourozmerne pole dat 
+	 * @return dvourozmerne pole
+	 */
+	private int[][] pole2D(){
+		int[][] pole2D = new int[Mapa_SP2021.sirka][Mapa_SP2021.vyska];
+		for(int i = 0; i < Mapa_SP2021.sirka; i++) {
+			for(int j = 0; j < Mapa_SP2021.vyska; j++) {
+				pole2D[i][j] = Mapa_SP2021.data[i + j * Mapa_SP2021.sirka];
+			}
+		}
+		return pole2D;
+	}
+	
+	private double zjistiKde(int index1, int index2, int porovnani) {
+		int hodnota1 = Mapa_SP2021.data[index1];
+		int hodnota2 = Mapa_SP2021.data[index2];
+		double rozdil1 = Math.abs(hodnota1 - hodnota2);
+		double rozdil2 = Math.abs(hodnota1 - porovnani);
+		double vysledek = rozdil2/rozdil1; 
+		return vysledek;
+	}
+	
+	/**
+	 * Metoda zjisti, ktera vrstevnice je hodnotove nejblize k zadane hodnote
+	 * @param nadmorskaVyska nadmorska vyska kliknuti
+	 * @return hodnotu nejblizsi vrstevnice
+	 */
+	private int najdiNejblizsi(int nadmorskaVyska) {
+		if(vrstevnice[0] > nadmorskaVyska) {
+			return vrstevnice[0];
+		}
+		for(int i = 0; i < vrstevnice.length; i++) {
+			if(Math.abs(nadmorskaVyska - vrstevnice[i]) <= 25) {
+				return vrstevnice[i];
+			}
+		}
+		return vrstevnice[vrstevnice.length-1];
+	}
+
+	/**
+	 * Metoda na vytisknuti stranky
+	 */
+	@Override
+	public int print(Graphics graphics, PageFormat pageFormat, int pageIndex) throws PrinterException {
+		if (pageIndex > 0) {
+			return NO_SUCH_PAGE;
+		}
+		Graphics2D g2 = (Graphics2D)graphics;
+		
+		final double X_MM = 200;
+		final double Y_MM = 200/pomerStran;
+		final double mmToPt = 72 / 25.4;
+		double PosunutiY = (297 - Y_MM) * mmToPt; 
+		g2.translate(10 * mmToPt, PosunutiY/2);
+		
+		drawPicture(g2, (int)(X_MM * mmToPt), (int)(Y_MM * mmToPt));
+		return 0;
+	}
+	
+	//----------------getry--------------------------------------------
+	/**
+	 * Vraci upravenou paletu barev
+	 * @return paleta
+	 */
+	public int[] getPaleta() {
+		return paleta;
+	}
+	
+	/**
+	 * Vraci maximalni nadmorskou vysku
+	 * @return maximalni hodnota
+	 */
+	public int getMaximum() {
+		return hodnotaMax;
+	}
+	
+	/**
+	 * Vraci minimalni nadmorskou vysku
+	 * @return minimalni hodnota
+	 */
+	public int getMinimum() {
+		return hodnotaMin;
 	}
 }
