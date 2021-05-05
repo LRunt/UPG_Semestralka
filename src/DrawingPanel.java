@@ -14,6 +14,8 @@ import java.awt.image.BufferedImage;
 import java.awt.print.PageFormat;
 import java.awt.print.Printable;
 import java.awt.print.PrinterException;
+import java.util.ArrayList;
+
 import javax.swing.JPanel;
 
 /**
@@ -22,6 +24,7 @@ import javax.swing.JPanel;
  * @author Lukas Runt 
  * @version 2.0 (2021-04-27)
  */
+@SuppressWarnings("serial")
 public class DrawingPanel extends JPanel implements Printable{
 
 	private final double POZADOVANY_POMER = (double)4/3; //optimalni velikost 800*600 -> pomer 4:3
@@ -44,6 +47,7 @@ public class DrawingPanel extends JPanel implements Printable{
 	private double klikY = -1;
 	private int nadmorskaVyska;
 	private boolean[] pravdivostniTabulka;
+	private boolean[][] pravdivostniTabulka2D;
 	private int hodnotaMin;
 	private int hodnotaMax;
 	private double pomerStran;
@@ -51,35 +55,47 @@ public class DrawingPanel extends JPanel implements Printable{
 	private int[] vrstevnice;
 	private int zviraznenaVrstevnice = 0;
 	private double konst;
+	private int vyskaPanelu;
+	private int sirkaPanelu;
+	private int kolikrat;
+	private boolean metoda;
 	
 	/**
 	 * Urcuje pocetecni velikost okna, tak aby mela sirku alespon 800px a alespon vysku 600px,
 	 * pritom zachovava pomer stran
 	 */
 	public DrawingPanel() {
-		int Width = 800;
-		int Height = 600;
+		int width = 800;
+		int height = 600;
 		pomerStran = (double)Mapa_SP2021.sirka/Mapa_SP2021.vyska;
 		//tato podminka zaruci otevreni okna v co nejlepsi velikosti
 		if(pomerStran < POZADOVANY_POMER) {
 			if(pomerStran > 1) {
-				Height = (int)(Width / pomerStran);
+				height = (int)(width / pomerStran);
 			}else if (pomerStran < 0.5){
-				Width = (int)(Height * pomerStran);
+				width = (int)(height * pomerStran);
 			}else {
-				Height = (int)(Width * pomerStran);
+				height = (int)(width * pomerStran);
 			}
 		} else if (pomerStran < 2){
-			Width = (int)(Height * pomerStran);
+			width = (int)(height * pomerStran);
 		} else {
-			Height = (int)(Width / pomerStran);
+			height = (int)(width / pomerStran);
 		}
-		this.setPreferredSize(new Dimension(Width, Height));
+		this.setPreferredSize(new Dimension(width, height));
 		makePalette();
 		maximum = getMax(Mapa_SP2021.data);
 		minimum = getMin(Mapa_SP2021.data);
 		maxStoupani = getMaxStoupani(Mapa_SP2021.data);
 		pole2D = pole2D();
+		createPoleVrstevnic();
+		vyskaPanelu = this.getHeight();
+		sirkaPanelu = this.getWidth();
+		if(Mapa_SP2021.sirka < 1000 && Mapa_SP2021.vyska < 1000) {
+			metoda = true;
+		} else {
+			metoda = false;
+		}
 		
 		this.addMouseListener(new MouseListener() {
 			
@@ -96,8 +112,9 @@ public class DrawingPanel extends JPanel implements Printable{
 						klikX = (e.getX() - velikostOkrajeX) / scale;
 						klikY = (e.getY() - velikostOkrajeY)/ scale;
 						//int nadmorskaVyska = Mapa_SP2021.data[(int)((e.getX() - velikostOkrajeX) / scale  + ((((e.getY() - velikostOkrajeY)/ scale) * Mapa_SP2021.sirka)))];
-						nadmorskaVyska = pole2D[(int)((e.getX() - velikostOkrajeX) / scale)][(int)((e.getY() - velikostOkrajeY)/ scale)];						
+						nadmorskaVyska = pole2D[(int)((e.getX() - velikostOkrajeX) / scale)][(int)((e.getY() - velikostOkrajeY)/ scale)];	
 						zviraznenaVrstevnice = najdiNejblizsi(nadmorskaVyska);
+						repaint();
 					}
 				}
 			}
@@ -153,9 +170,9 @@ public class DrawingPanel extends JPanel implements Printable{
 				g = 200 - (int)(3*(i - 200));
 			} 
 			else {
-			b = 0;
-			r = 0;
-			g = 0;
+			b = 150;
+			r = 150;
+			g = 150;
 			}
 			paleta[i] = (r << 16) | (g << 8) | (b << 0);
 		}
@@ -168,44 +185,57 @@ public class DrawingPanel extends JPanel implements Printable{
 		
 		createPicture(Mapa_SP2021.data);
 		drawPicture(g2, this.getWidth(), this.getHeight());
-		
-		//System.out.println("Sirka: " + this.getWidth() + ", Obr: " + obrazek.getWidth() * scale);
-		//System.out.println("Vyska: " + this.getHeight() + ", Obr: " + obrazek.getHeight() * scale);
-		
-		//kresleni vrstevnic
-		vrstevnice = new int[Math.round((hodnotaMax - hodnotaMin)/50) + 1];
-		int a = hodnotaMin;
-		int i = 0;
-		while(a % 50 != 0 || a == 0) {
-			a++;
-		}
-		g2.setColor(Color.WHITE);
-		g2.setStroke(new BasicStroke(1, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
-		while(a <= hodnotaMax) {
-			vrstevnice[i] = a;
-			if(a != zviraznenaVrstevnice) {
-				pravdivostniTabulka = vetsiNez(a);
-				drawVrstevnice(g2, a);
-				i++;
-				a += 50;
+		drawVsechnyVrstevnice(g2);
+		if (zviraznenaVrstevnice != 0) {
+			g2.setColor(Color.MAGENTA);
+			g2.setStroke(new BasicStroke(2, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
+			if(metoda) {
+				pravdivostniTabulka2D = vetsiNez2D(zviraznenaVrstevnice);
+				drawVrstevniceV2(g2, zviraznenaVrstevnice);
+			}else {
+				g2.translate(1 * scale, 0);
+				pravdivostniTabulka = vetsiNez(zviraznenaVrstevnice);
+				drawVrstevnice(g2, zviraznenaVrstevnice);
+				g2.translate(-1 * scale, 0);
 			}
-			else {
-				g2.setColor(Color.MAGENTA);
-				g2.setStroke(new BasicStroke(2, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
-				pravdivostniTabulka = vetsiNez(a);
-				drawVrstevnice(g2, a);
-				g2.setColor(Color.WHITE);
-				g2.setStroke(new BasicStroke(1, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
-				a += 50;
-				i++;
-			}
+			
 		}
-		
 		drawBod(g2);
 		
 		drawArrow(maximum % Mapa_SP2021.sirka, (int)(maximum / Mapa_SP2021.sirka), "Max. prevyseni", g2);
 		drawArrow(minimum % Mapa_SP2021.sirka, (int)(minimum / Mapa_SP2021.sirka), "Min. prevyseni", g2);
 		drawArrow(maxStoupani % Mapa_SP2021.sirka, (int)(maxStoupani / Mapa_SP2021.sirka), "Max. stoupani", g2);
+		//pri meneni velikosti okna se bude mapa prakreslovat bez pouziti timeru
+		if(this.getHeight() != vyskaPanelu || this.getWidth() != sirkaPanelu) {
+			this.repaint();
+			vyskaPanelu = this.getHeight();
+			sirkaPanelu = this.getWidth();
+		}
+	}
+	
+	/**
+	 * Vytvori pole vrstevnic, ktere se budou dale vykreslovat
+	 */
+	private void createPoleVrstevnic() {
+		ArrayList<Integer> vrstevniceList = new ArrayList<Integer>();
+		kolikrat = 1;
+		if(hodnotaMax - hodnotaMin > 1000) {
+			kolikrat = 10;
+		}
+		if(hodnotaMax - hodnotaMin > 10000) {
+			kolikrat = 100;
+		}
+		int a = hodnotaMin;
+		while(a <= hodnotaMax) {
+			if(a % (50 * kolikrat) == 0 && a != 0) {
+				vrstevniceList.add(a);
+			}
+			a++;
+		}
+		vrstevnice = new int[vrstevniceList.size()];
+		for(int j = 0; j < vrstevnice.length; j++) {
+			vrstevnice[j] = vrstevniceList.get(j).intValue();
+		}
 	}
 	
 	/**
@@ -252,7 +282,7 @@ public class DrawingPanel extends JPanel implements Printable{
 	 * @param W sirka obrazku
 	 * @param H vyska obrazku
 	 */
-	private void drawPicture(Graphics2D g2, int W, int H) {
+	public void drawPicture(Graphics2D g2, int W, int H) {
 		//Cerny obdelnik v pozadi
 		g2.setColor(Color.WHITE);
 		g2.fillRect(0, 0, W, H);
@@ -279,17 +309,25 @@ public class DrawingPanel extends JPanel implements Printable{
 	private void drawBod(Graphics2D g2) {
 		if(klikX >= 0 && klikY >= 0) {
 			Ellipse2D bod = new Ellipse2D.Double(klikX * scale + velikostOkrajeX, klikY * scale + velikostOkrajeY, 5, 5);
-			g2.setColor(Color.RED);
-			g2.fill(bod);
+			/*g2.setColor(Color.RED);
+			g2.fill(bod);*/
 			g2.setColor(Color.BLACK);
-			g2.draw(bod);
-			g2.setFont(new Font("Calibri", Font.BOLD, 20));
+			g2.fill(bod);
+			g2.setFont(new Font("Calibri", Font.BOLD, VELIKOST_TEXTU));
 			FontMetrics font = g2.getFontMetrics();
-			g2.drawString(nadmorskaVyska + "",(int)(klikX * scale + velikostOkrajeX - font.stringWidth(nadmorskaVyska + "")/2), (int)(klikY * scale + velikostOkrajeY));
-			g2.setColor(Color.RED);
-			g2.setFont(new Font("Calibri", Font.PLAIN, 20));
+			if((int)(klikY * scale + velikostOkrajeY) > VELIKOST_TEXTU + 10) {
+				g2.drawString(nadmorskaVyska + "",(int)(klikX * scale + velikostOkrajeX - font.stringWidth(nadmorskaVyska + "")/2), (int)(klikY * scale + velikostOkrajeY));
+			} else {
+				g2.drawString(nadmorskaVyska + "",(int)(klikX * scale + velikostOkrajeX - font.stringWidth(nadmorskaVyska + "")/2), (int)(klikY * scale + velikostOkrajeY + VELIKOST_TEXTU));
+			}
+			/*g2.setColor(Color.RED);
+			g2.setFont(new Font("Calibri", Font.PLAIN, VELIKOST_TEXTU));
 			//FontMetrics font = g2.getFontMetrics();
-			g2.drawString(nadmorskaVyska + "",(int)(klikX * scale + velikostOkrajeX - font.stringWidth(nadmorskaVyska + "")/2), (int)(klikY * scale + velikostOkrajeY));
+			if((int)(klikY * scale + velikostOkrajeY) > VELIKOST_TEXTU + 10) {
+				g2.drawString(nadmorskaVyska + "",(int)(klikX * scale + velikostOkrajeX - font.stringWidth(nadmorskaVyska + "")/2), (int)(klikY * scale + velikostOkrajeY));
+			} else {
+				g2.drawString(nadmorskaVyska + "",(int)(klikX * scale + velikostOkrajeX - font.stringWidth(nadmorskaVyska + "")/2), (int)(klikY * scale + velikostOkrajeY + VELIKOST_TEXTU));
+			}*/
 		}
 	}
 
@@ -363,7 +401,7 @@ public class DrawingPanel extends JPanel implements Printable{
 	 * @param g2 grafika
 	 */
 	private void drawArrow(double x1, double y1, String text, Graphics2D g2) {
-		g2.setColor(Color.RED);
+		g2.setColor(Color.BLACK);
 		g2.setStroke(new BasicStroke(3, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
 		g2.setFont(new Font("Calibri", Font.BOLD, VELIKOST_TEXTU));
 		FontMetrics font = g2.getFontMetrics();
@@ -499,13 +537,64 @@ public class DrawingPanel extends JPanel implements Printable{
 		return pole;
 	}
 	
+	private boolean[][] vetsiNez2D(int nadmorskaVyska){
+		boolean[][] pole = new boolean[Mapa_SP2021.sirka + 1][Mapa_SP2021.vyska + 1];
+		for(int i = 0; i < Mapa_SP2021.sirka; i++) {
+			for(int j = 0; j < Mapa_SP2021.vyska; j++) {
+				if(Mapa_SP2021.data[i + j * Mapa_SP2021.sirka] < nadmorskaVyska) {
+					pole[i][j] = false;
+				} else {
+					pole[i][j] = true;
+				}
+			}
+		}
+		for(int i = 0; i < Mapa_SP2021.sirka; i++) {
+			if(Mapa_SP2021.data[i + (Mapa_SP2021.vyska - 1) * Mapa_SP2021.sirka] < nadmorskaVyska) {
+				pole[i][Mapa_SP2021.vyska] = false;
+			} else {
+				pole[i][Mapa_SP2021.vyska] = true;
+			}
+		}
+		for(int i = 0; i < Mapa_SP2021.vyska; i++) {
+			if(Mapa_SP2021.data[Mapa_SP2021.sirka - 1 + i * Mapa_SP2021.sirka] < nadmorskaVyska) {
+				pole[Mapa_SP2021.sirka][i] = false;
+			} else {
+				pole[Mapa_SP2021.sirka][i] = true;
+			}
+		}
+		if(Mapa_SP2021.data[Mapa_SP2021.data.length - 1] > nadmorskaVyska) {
+			pole[Mapa_SP2021.sirka][Mapa_SP2021.vyska] = true;
+		} else {
+			pole[Mapa_SP2021.sirka][Mapa_SP2021.vyska] = false;
+		}
+		return pole;
+	}
+	
+	private void drawVsechnyVrstevnice(Graphics2D g2) {
+		int a;
+		int i = 0;
+		g2.setColor(Color.WHITE);
+		g2.setStroke(new BasicStroke(1, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
+		while(i < vrstevnice.length && vrstevnice.length >= 1) {
+			a = vrstevnice[i];
+			if(metoda) {
+				pravdivostniTabulka2D = vetsiNez2D(a);
+				drawVrstevniceV2(g2, a);
+			} else {
+				pravdivostniTabulka = vetsiNez(a);
+				drawVrstevnice(g2, a);
+			}
+			i++;
+		}	
+	}
+	
 	/**
 	 * Metoda nakresli vrstevnice
 	 * @param g2 grafika
 	 * @param porovnani madmorska vyska
 	 */
 	private void drawVrstevnice(Graphics2D g2, int porovnani) {
-		for(int i = 0; i < Mapa_SP2021.vyska - 1; i++) {
+		for(int i = 0; i < Mapa_SP2021.vyska; i++) {
 			for(int j = 0; j < Mapa_SP2021.sirka - 1; j++) {
 				if(pravdivostniTabulka[i * Mapa_SP2021.sirka + j] != pravdivostniTabulka[(i * Mapa_SP2021.sirka + j) + 1]) {
 					double y1 = ((i + 1) * scale) + velikostOkrajeY;
@@ -532,6 +621,146 @@ public class DrawingPanel extends JPanel implements Printable{
 		}
 	}
 	
+	private void drawVrstevniceV2(Graphics2D g2, int nadmorskaVyska) {
+		double x1, x2, y1, y2;
+		byte binKomb;
+		for(int i = 0; i < Mapa_SP2021.sirka; i++) {
+			for(int j = 0; j < Mapa_SP2021.vyska; j++) {
+				binKomb = 0;
+				if(pravdivostniTabulka2D[i][j]) {
+					binKomb += 1;
+				}
+				if(pravdivostniTabulka2D[i + 1][j]) {
+					binKomb += 2;
+				}
+				if(pravdivostniTabulka2D[i + 1][j + 1]) {
+					binKomb += 4;
+				}
+				if(pravdivostniTabulka2D[i][j + 1]) {
+					binKomb += 8;
+				}
+				switch(binKomb) {
+					case 1:
+						x1 = (i * scale) + velikostOkrajeX;
+						x2 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						y2 = (j * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 2:
+						x1 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						x2 = (i * scale + 1 * scale) + velikostOkrajeX;
+						y1 = (j * scale) + velikostOkrajeY;
+						y2 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 3:
+						x1 = (i * scale) + velikostOkrajeX;
+						x2 = (i * scale + 1 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						y2 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 4:
+						x1 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						x2 = (i * scale + 1 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 1 * scale) + velikostOkrajeY;
+						y2 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 5:
+						x1 = (i * scale) + velikostOkrajeX;
+						x2 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						y2 = (j * scale + 1 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						x1 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						x2 = (i * scale + 1 * scale) + velikostOkrajeX;
+						y1 = (j * scale) + velikostOkrajeY;
+						y2 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						
+						break;
+					case 6:
+						x1 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						x2 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						y1 = (j * scale) + velikostOkrajeY;
+						y2 = (j * scale + 1 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 7:
+						x1 = (i * scale) + velikostOkrajeX;
+						x2 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						y2 = (j * scale + 1 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 8:
+						x1 = (i * scale) + velikostOkrajeX;
+						x2 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						y2 = (j * scale + 1 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 9:
+						x1 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						x2 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						y1 = (j * scale) + velikostOkrajeY;
+						y2 = (j * scale + 1 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 10:
+						x1 = (i * scale) + velikostOkrajeX;
+						x2 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						y2 = (j * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						x1 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						x2 = (i * scale + 1 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 1 * scale) + velikostOkrajeY;
+						y2 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 11:
+						x1 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						x2 = (i * scale + 1 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 1 * scale) + velikostOkrajeY;
+						y2 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 12:
+						x1 = (i * scale) + velikostOkrajeX;
+						x2 = (i * scale + 1 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						y2 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 13:
+						x1 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						x2 = (i * scale + 1 * scale) + velikostOkrajeX;
+						y1 = (j * scale) + velikostOkrajeY;
+						y2 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+					case 14:
+						x1 = (i * scale) + velikostOkrajeX;
+						x2 = (i * scale + 0.5 * scale) + velikostOkrajeX;
+						y1 = (j * scale + 0.5 * scale) + velikostOkrajeY;
+						y2 = (j * scale) + velikostOkrajeY;
+						nakresliCaru(g2, x1, x2, y1, y2);
+						break;
+						
+				}
+			}
+		}
+	}
+	
+	private void nakresliCaru(Graphics2D g2, double x1, double x2, double y1, double y2) {
+		Line2D line = new Line2D.Double(x1, y1, x2, y2);
+		g2.draw(line);
+	}
+	
+	
 	/**
 	 * Metoda vytvori dvourozmerne pole dat 
 	 * @return dvourozmerne pole
@@ -546,28 +775,25 @@ public class DrawingPanel extends JPanel implements Printable{
 		return pole2D;
 	}
 	
-	private double zjistiKde(int index1, int index2, int porovnani) {
-		int hodnota1 = Mapa_SP2021.data[index1];
-		int hodnota2 = Mapa_SP2021.data[index2];
-		double rozdil1 = Math.abs(hodnota1 - hodnota2);
-		double rozdil2 = Math.abs(hodnota1 - porovnani);
-		double vysledek = rozdil2/rozdil1; 
-		return vysledek;
-	}
-	
 	/**
 	 * Metoda zjisti, ktera vrstevnice je hodnotove nejblize k zadane hodnote
 	 * @param nadmorskaVyska nadmorska vyska kliknuti
 	 * @return hodnotu nejblizsi vrstevnice
 	 */
 	private int najdiNejblizsi(int nadmorskaVyska) {
+		if(vrstevnice.length <= 1) {
+			return 0;
+		}
 		if(vrstevnice[0] > nadmorskaVyska) {
 			return vrstevnice[0];
 		}
 		for(int i = 0; i < vrstevnice.length; i++) {
-			if(Math.abs(nadmorskaVyska - vrstevnice[i]) <= 25) {
+			if(Math.abs(nadmorskaVyska - vrstevnice[i]) <= 25 * kolikrat) {
 				return vrstevnice[i];
 			}
+		}
+		if(vrstevnice[vrstevnice.length-1] == 0) {
+			return vrstevnice[vrstevnice.length-2];
 		}
 		return vrstevnice[vrstevnice.length-1];
 	}
@@ -615,5 +841,9 @@ public class DrawingPanel extends JPanel implements Printable{
 	 */
 	public int getMinimum() {
 		return hodnotaMin;
+	}
+	
+	public BufferedImage getObrazek() {
+		return obrazek;
 	}
 }

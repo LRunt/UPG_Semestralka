@@ -29,7 +29,12 @@ public class LegendaPanel extends JPanel{
 		
 			hodnoty = createHodnoty();
 			pocetCtvercu = hodnoty.length;
-			velikostCtverce = this.getWidth()/(2*(pocetCtvercu + 1) + pocetCtvercu);
+			if (pocetCtvercu <= 2) {
+				velikostCtverce = 50;
+			} else {
+				velikostCtverce = this.getWidth()/(2*(pocetCtvercu + 1) + pocetCtvercu);
+			}
+			
 			konst = zjistiKonst();
 			
 			//this.setSize(this.getWidth(), 40 + velikostCtverce + 30);
@@ -63,9 +68,14 @@ public class LegendaPanel extends JPanel{
 		g2.drawString("Legenda:", 10, 20);
 		g2.setColor(new Color (Mapa_SP2021.panel.getPaleta()[(int)(hodnoty[i] / konst)]));
 		g2.fillRect(2*velikostCtverce + 2*i*velikostCtverce + i*velikostCtverce, 30, velikostCtverce, velikostCtverce);
-		g2.setColor(Color.BLACK);
 		String text = hodnoty[i] + "";
-		g2.drawString(text, 2*velikostCtverce + 2*i*velikostCtverce + i*velikostCtverce + velikostCtverce/2 - font.stringWidth(text)/2, 30 + velikostCtverce + VELIKOST_TEXTU);
+		if (30 + velikostCtverce + VELIKOST_TEXTU < this.getHeight()) {
+			g2.setColor(Color.BLACK);
+			g2.drawString(text, 2*velikostCtverce + 2*i*velikostCtverce + i*velikostCtverce + velikostCtverce/2 - font.stringWidth(text)/2, 30 + velikostCtverce + VELIKOST_TEXTU);
+		} else {
+			g2.setColor(Color.BLACK);
+			g2.drawString(text, 2*velikostCtverce + 2*i*velikostCtverce + i*velikostCtverce + velikostCtverce/2 - font.stringWidth(text)/2, 30 + velikostCtverce/2);
+		}
 	}
 	
 	/**
@@ -79,27 +89,60 @@ public class LegendaPanel extends JPanel{
 		}
 		//pomerne osklivy usek kodu, ale funguje a co funguje to se nemeni!
 		else {
+			int kroky = 50;
 			int pocet = 0;
-			int a = Mapa_SP2021.panel.getMinimum();
-			int b = Mapa_SP2021.panel.getMaximum();
-			while(a <= b) {
-				if(a % 50 == 0) {
+			int min = Mapa_SP2021.panel.getMinimum();
+			int max = Mapa_SP2021.panel.getMaximum();
+			int rozdil = max - min;
+			if(rozdil < 50) {
+				if(min == max) {
+					int[] hodnoty = new int[1];
+					hodnoty[0] = min;
+					return hodnoty;
+				} else {
+					int[] hodnoty = new int[2];
+					hodnoty[0] = min;
+					hodnoty[1] = min;
+					return hodnoty;
+				} 
+			} else if (rozdil > 1000 && rozdil < 5000) {
+				kroky = 500;
+			} else if (rozdil >= 5000 && rozdil < 10000) {
+				kroky = 1000;
+			} else if (rozdil >= 10000 && rozdil < 100000) {
+				kroky = 5000;
+			}
+			while(min <= max) {
+				if(min % kroky == 0) {
 					pocet++;
 				}
-				a++;
+				min++;
 			}
-			int[] hodnoty = new int[pocet];
-			a = Mapa_SP2021.panel.getMinimum();
+			int[] hodnoty = new int[pocet + 1];
+			min = Mapa_SP2021.panel.getMinimum();
 			pocet = 0;
-			while(a <= b) {
-				if(a % 50 == 0) {
-					hodnoty[pocet] = a;
+			while(min <= max) {
+				if(min % kroky == 0) {
+					hodnoty[pocet] = min - kroky;
+					hodnoty[pocet + 1] = min;
 					pocet++;
 				}
-				a++;
-			}
+				min++;
+			}	
 			return hodnoty;
 		}
+	}
+	
+	
+	private int zjistiPocet(int min, int max) {
+		int pocet = 0;
+		while(min <= max) {
+			if(min % 50 == 0) {
+				pocet++;
+			}
+			min++;
+		}
+		return 0;
 	}
 	
 	/**
