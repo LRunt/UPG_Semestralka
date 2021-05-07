@@ -1,26 +1,18 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Paint;
 import java.awt.event.ActionEvent;
-import java.awt.geom.Ellipse2D;
-import java.awt.geom.Line2D;
-import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale.Category;
 import java.util.Scanner;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
@@ -34,18 +26,17 @@ import javax.swing.JOptionPane;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
-import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.ValueAxis;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.category.BoxAndWhiskerRenderer;
 import org.jfree.chart.renderer.xy.StandardXYBarPainter;
 import org.jfree.chart.renderer.xy.XYBarRenderer;
-import org.jfree.chart.renderer.xy.XYItemRenderer;
 import org.jfree.data.statistics.BoxAndWhiskerCategoryDataset;
 import org.jfree.data.statistics.DefaultBoxAndWhiskerCategoryDataset;
 import org.jfree.data.statistics.HistogramDataset;
 import org.jfree.data.statistics.HistogramType;
+import org.jfree.svg.SVGGraphics2D;
 
 /**
  * Semestralni prace UPG 2021
@@ -125,8 +116,11 @@ public class Mapa_SP2021 {
 		tisk.addActionListener(e -> vytiskni(e));
 		JMenuItem png = new JMenuItem("PNG");
 		png.addActionListener(e -> exportPNG(e));
+		JMenuItem svg = new JMenuItem("SVG");
+		svg.addActionListener(e -> exportSVG(e));
 		export.add(tisk);
 		export.add(png);
+		export.add(svg);
 		
 		JMenu grafy = new JMenu("Grafy");
 		JMenuItem histogram = new JMenuItem("Histogram");
@@ -168,7 +162,7 @@ public class Mapa_SP2021 {
 		String velikostStr = JOptionPane.showInputDialog(zadaniVelikosti, "Zadej sirku");
 		try {
 			velikost = Integer.parseInt(velikostStr);
-			if (velikost * velikost/pomer > 400000) {
+			if (velikost > 2000) {
 				JOptionPane errorDialog = new JOptionPane("Byl zadan moc veliky rozmer!", JOptionPane.ERROR_MESSAGE);
 				JDialog dialog = errorDialog.createDialog("Error");
 				dialog.setAlwaysOnTop(true);
@@ -312,6 +306,10 @@ public class Mapa_SP2021 {
 		return minimum;
 	}
 
+	/**
+	 * Metoda provede vytisknuti mapy
+	 * @param e akce - kliknuti na menu item
+	 */
 	private static void vytiskni(ActionEvent e) {
 		PrinterJob job = PrinterJob.getPrinterJob();
 		if (job.printDialog()) {
@@ -321,6 +319,24 @@ public class Mapa_SP2021 {
 			} catch (PrinterException e1) {
 				System.out.println("Doslo k chybe pri tisku obrazku: (" + e1.getMessage() + ")");
 			}
+		}
+	}
+	
+	/**
+	 * Metoda provede export do souboru svg
+	 * @param e akce - kliknuti na menu item
+	 */
+	private static void exportSVG(ActionEvent e) {
+		SVGGraphics2D svg = new SVGGraphics2D(1920, 1080);
+		panel.drawSVG(svg);
+		try {
+			PrintWriter pw = new PrintWriter(
+							new BufferedWriter(
+							new FileWriter("svgExport.svg")));
+			pw.print(svg.getSVGElement());
+			pw.close();
+		} catch(Exception ex) {
+			System.out.println("Doslo k chybe pri exportu souboru: " + ex.getMessage());
 		}
 	}
 }

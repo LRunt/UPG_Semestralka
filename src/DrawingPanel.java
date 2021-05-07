@@ -91,7 +91,7 @@ public class DrawingPanel extends JPanel implements Printable{
 		createPoleVrstevnic();
 		vyskaPanelu = this.getHeight();
 		sirkaPanelu = this.getWidth();
-		if(Mapa_SP2021.sirka < 1000 && Mapa_SP2021.vyska < 1000) {
+		if(Mapa_SP2021.sirka < 10000 && Mapa_SP2021.vyska < 10000) {
 			metoda = true;
 		} else {
 			metoda = false;
@@ -133,7 +133,7 @@ public class DrawingPanel extends JPanel implements Printable{
 			
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				// TODO Auto-generated method stub
+				
 				
 			}
 		});
@@ -185,21 +185,9 @@ public class DrawingPanel extends JPanel implements Printable{
 		
 		createPicture(Mapa_SP2021.data);
 		drawPicture(g2, this.getWidth(), this.getHeight());
+		g2.setColor(Color.WHITE);
 		drawVsechnyVrstevnice(g2);
-		if (zviraznenaVrstevnice != 0) {
-			g2.setColor(Color.MAGENTA);
-			g2.setStroke(new BasicStroke(2, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
-			if(metoda) {
-				pravdivostniTabulka2D = vetsiNez2D(zviraznenaVrstevnice);
-				drawVrstevniceV2(g2, zviraznenaVrstevnice);
-			}else {
-				g2.translate(1 * scale, 0);
-				pravdivostniTabulka = vetsiNez(zviraznenaVrstevnice);
-				drawVrstevnice(g2, zviraznenaVrstevnice);
-				g2.translate(-1 * scale, 0);
-			}
-			
-		}
+		drawZviraznenaVrstevnice(g2);
 		drawBod(g2);
 		
 		drawArrow(maximum % Mapa_SP2021.sirka, (int)(maximum / Mapa_SP2021.sirka), "Max. prevyseni", g2);
@@ -443,6 +431,7 @@ public class DrawingPanel extends JPanel implements Printable{
 		//-------------------text---------------------------------------------
 		velikostOkrajeY = (int)(this.getHeight()-aktualVelikostObrY)/2;
 		velikostOkrajeX = (int)(this.getWidth()-aktualVelikostObrX)/2;
+		//A co se stane zlobivym hosankum, pane Filuto?
 		if(u_y < 0) {
 			if(textVObrazeY(u_y, y1) == true) {
 				textY = (int)(y2 + 15);
@@ -459,6 +448,7 @@ public class DrawingPanel extends JPanel implements Printable{
 				textY = velikostOkrajeY + VELIKOST_TEXTU;
 			}
 		}
+		//Strycek Arnie je usmazi zaziva vrazednym pohledem.
 		if(u_x < 0) {
 			if(textVObrazeX(u_x, x1, font.stringWidth(text)/2)) {
 				textX = (int)(x2 - font.stringWidth(text)/2);
@@ -475,6 +465,7 @@ public class DrawingPanel extends JPanel implements Printable{
 				textX = velikostOkrajeX;
 			}
 		}
+		//To je pravda, pane Filuto.
 		g2.drawString(text,textX, textY);
 	}
 	
@@ -573,7 +564,6 @@ public class DrawingPanel extends JPanel implements Printable{
 	private void drawVsechnyVrstevnice(Graphics2D g2) {
 		int a;
 		int i = 0;
-		g2.setColor(Color.WHITE);
 		g2.setStroke(new BasicStroke(1, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
 		while(i < vrstevnice.length && vrstevnice.length >= 1) {
 			a = vrstevnice[i];
@@ -639,7 +629,7 @@ public class DrawingPanel extends JPanel implements Printable{
 				if(pravdivostniTabulka2D[i][j + 1]) {
 					binKomb += 8;
 				}
-				switch(binKomb) {
+				switch(binKomb) { //Dalsi pomerne oskliva cast kodu: hodne opakovani, zadna motivace s tim neco delat :-( 
 					case 1:
 						x1 = (i * scale) + velikostOkrajeX;
 						x2 = (i * scale + 0.5 * scale) + velikostOkrajeX;
@@ -755,6 +745,31 @@ public class DrawingPanel extends JPanel implements Printable{
 		}
 	}
 	
+	private void drawZviraznenaVrstevnice(Graphics2D g2) {
+		if (zviraznenaVrstevnice != 0) {
+			g2.setColor(Color.MAGENTA);
+			g2.setStroke(new BasicStroke(2, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
+			if(metoda) {
+				pravdivostniTabulka2D = vetsiNez2D(zviraznenaVrstevnice);
+				drawVrstevniceV2(g2, zviraznenaVrstevnice);
+			}else {
+				g2.translate(1 * scale, 0);
+				pravdivostniTabulka = vetsiNez(zviraznenaVrstevnice);
+				drawVrstevnice(g2, zviraznenaVrstevnice);
+				g2.translate(-1 * scale, 0);
+			}
+			
+		}
+	}
+	
+	/**
+	 * Kresli caru - vrstevici, uprtavenou scalem
+	 * @param g2 grafarna
+	 * @param x1 bod x1
+	 * @param x2 bod x2
+	 * @param y1 bod y1
+	 * @param y2 bod y2
+	 */
 	private void nakresliCaru(Graphics2D g2, double x1, double x2, double y1, double y2) {
 		Line2D line = new Line2D.Double(x1, y1, x2, y2);
 		g2.draw(line);
@@ -781,7 +796,7 @@ public class DrawingPanel extends JPanel implements Printable{
 	 * @return hodnotu nejblizsi vrstevnice
 	 */
 	private int najdiNejblizsi(int nadmorskaVyska) {
-		if(vrstevnice.length <= 1) {
+		if(vrstevnice.length < 1) {
 			return 0;
 		}
 		if(vrstevnice[0] > nadmorskaVyska) {
@@ -816,6 +831,16 @@ public class DrawingPanel extends JPanel implements Printable{
 		
 		drawPicture(g2, (int)(X_MM * mmToPt), (int)(Y_MM * mmToPt));
 		return 0;
+	}
+	
+	public void drawSVG(Graphics2D g2) {
+		g2.setColor(Color.GRAY);
+		drawVsechnyVrstevnice(g2);
+		drawZviraznenaVrstevnice(g2);
+		drawBod(g2);
+		drawArrow(maximum % Mapa_SP2021.sirka, (int)(maximum / Mapa_SP2021.sirka), "Max. prevyseni", g2);
+		drawArrow(minimum % Mapa_SP2021.sirka, (int)(minimum / Mapa_SP2021.sirka), "Min. prevyseni", g2);
+		drawArrow(maxStoupani % Mapa_SP2021.sirka, (int)(maxStoupani / Mapa_SP2021.sirka), "Max. stoupani", g2);
 	}
 	
 	//----------------getry--------------------------------------------
