@@ -4,9 +4,13 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-
 import javax.swing.JPanel;
 
+/**
+ * Trida {@code LegendaPanel} kresli legendu pod mapou,
+ * @author Lukas Runt
+ * @version 1.0 (10-05-2021)
+ */
 @SuppressWarnings("serial")
 public class LegendaPanel extends JPanel{
 	private final int VELIKOST_TEXTU = 20;
@@ -15,6 +19,9 @@ public class LegendaPanel extends JPanel{
 	private double konst;
 	int velikostCtverce;
 	
+	/**
+	 * Konstruktor
+	 */
 	public LegendaPanel() {
 		this.setPreferredSize(new Dimension(Mapa_SP2021.panel.getWidth(), 100));
 		this.setFocusable(false);
@@ -24,23 +31,19 @@ public class LegendaPanel extends JPanel{
 	public void paint(Graphics g) {
 		super.paint(g);
 		
-		//this.setSize(Mapa_SP2021.panel.getWidth(), 100);
 		Graphics2D g2 = (Graphics2D)g;
 		
-			hodnoty = createHodnoty();
-			pocetCtvercu = hodnoty.length;
-			if (pocetCtvercu <= 2) {
-				velikostCtverce = 50;
-			} else {
-				velikostCtverce = this.getWidth()/(2*(pocetCtvercu + 1) + pocetCtvercu);
-			}
+		hodnoty = createHodnoty();
+		pocetCtvercu = hodnoty.length;
+		if (pocetCtvercu <= 2) {
+			velikostCtverce = 50;
+		} else {
+			velikostCtverce = this.getWidth()/(2*(pocetCtvercu + 1) + pocetCtvercu);
+		}
 			
-			konst = zjistiKonst();
-			
-			//this.setSize(this.getWidth(), 40 + velikostCtverce + 30);
-		
-			drawLegenda(g2);
-		
+		konst = zjistiKonst();
+	
+		drawLegenda(g2);
 	}
 	
 	/**
@@ -131,18 +134,6 @@ public class LegendaPanel extends JPanel{
 			}	
 			return hodnoty;
 		}
-	}
-	
-	
-	private int zjistiPocet(int min, int max) {
-		int pocet = 0;
-		while(min <= max) {
-			if(min % 50 == 0) {
-				pocet++;
-			}
-			min++;
-		}
-		return 0;
 	}
 	
 	/**

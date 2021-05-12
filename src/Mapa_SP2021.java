@@ -3,7 +3,6 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.event.ActionEvent;
-import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
@@ -15,21 +14,16 @@ import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Scanner;
-
 import javax.imageio.ImageIO;
-import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
-import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
-import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JTextField;
-
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
@@ -49,7 +43,7 @@ import org.jfree.svg.SVGGraphics2D;
  * Semestralni prace UPG 2021
  * Pasivni vizualizace 
  * @author Lukas Runt
- * @version 2.0 (26-02-2020)
+ * @version 2.0 (10-05-2021)
  */
 public class Mapa_SP2021 {
 	/** sirka mapy */
@@ -60,9 +54,9 @@ public class Mapa_SP2021 {
 	public static int kontrast;
 	/** data nadmorskych vysek */
 	public static int[] data;
-	private static int[] stoupani;
-	private static int[] prevyseni;
+	/** Kreslici platno*/
 	public static DrawingPanel panel;
+	/** jmeno mapy, ktera se vykresluje na platno*/
 	private static String jmenoMapy;
 	
 	/**
@@ -94,51 +88,6 @@ public class Mapa_SP2021 {
 		return null;
 	}
 	
-	public static int[] vypocetStoupani() {
-		int[] vodorovne = new int[vyska * (sirka - 1)];
-		int[] svisle = new int[sirka * (vyska - 1)];
-		int[] stoupani = new int[data.length];
-		int soucet, n, prumer;
-			for(int i = 1; i < vyska; i++) {	
-				for(int j = 1; j < sirka; j++) {
-					if ((i * j) % sirka == 0) {		}//aby se nepocitalo stoupani pres okraj
-					else {
-						vodorovne[i * j] = Math.abs(data[i * j] - data[i * j - 1]);
-					}
-				}
-			}
-			for(int i = 0; i < sirka; i++) {
-				for(int j = 1; j < vyska; j++) {
-					svisle[i + (j - 1) * sirka] = Math.abs(data[i + j * sirka] - data[i + (j-1) * sirka]);
-				}
-			}
-			for(int i = 0; i < sirka; i++) {
-				for(int j = 0; j < vyska; j++) {
-					soucet = 0;
-					n = 0;
-					if(i != sirka - 1) {
-						n++;
-						soucet += vodorovne[i + j * (sirka - 1)];
-					}
-					if(i != 0) {
-						n++;
-						soucet += vodorovne[(i + j * (sirka - 1)) - 1];
-					}
-					if(j != vyska - 1) {
-						n++;
-						soucet += svisle[i + j * sirka];
-					}
-					if(j != 0) {
-						n++;
-						soucet += svisle[i + j * sirka - sirka];
-					}
-					prumer = (int)(soucet/n);
-					stoupani[i + j * sirka] = prumer;
-				}
-			}
-		return stoupani;
-	}
-	
 	/**
 	 * Vstupni bod programu
 	 * @param args jmeno souboru ktery se bude zobrazovat
@@ -155,10 +104,8 @@ public class Mapa_SP2021 {
 			jmenoMapy = "Default";
 		}
 		else {
-			prevyseni = nacitaniDat(args[0]);
+			data = nacitaniDat(args[0]);
 			jmenoMapy = args[0];
-			data = prevyseni;
-			stoupani = vypocetStoupani();
 		} 
 		
 		JFrame okno = new JFrame();
@@ -188,30 +135,19 @@ public class Mapa_SP2021 {
 		JMenuItem histogram = new JMenuItem("Histogram");
 		histogram.addActionListener(e -> zobrazHistogram());
 		JMenuItem tukeyBox = new JMenuItem("Tukey Box");
-		tukeyBox.addActionListener(e -> zobrazTukeyBox());
+		tukeyBox.addActionListener(e -> zobrazTurkeyBox());
 		grafy.add(histogram);
 		grafy.add(tukeyBox);
 	
-		JMenu mode = new JMenu("Nastaveni");
-		mode.setSize(300, 25);
+		JMenu vrstevniceMenu = new JMenu("Nastaveni");
+		vrstevniceMenu.setSize(300, 25);
 		JMenuItem vrstevnice = new JMenuItem("Vrstevnice");
 		vrstevnice.addActionListener(e -> setVrstevnice());
-		mode.add(vrstevnice);
-		
-		JRadioButtonMenuItem prevyseni = new JRadioButtonMenuItem("Prevyseni", true);
-		prevyseni.addActionListener(e -> setPrevyseni(e));
-		JRadioButtonMenuItem stoupani = new JRadioButtonMenuItem("Stoupani");
-		stoupani.addActionListener(e -> setStoupani(e));
-		ButtonGroup directionGroup = new ButtonGroup();
-		directionGroup.add(prevyseni);
-		directionGroup.add(stoupani);
-		
-		mode.add(prevyseni);
-		mode.add(stoupani);
+		vrstevniceMenu.add(vrstevnice);
 		
 		mb.add(export);
 		mb.add(grafy);
-		mb.add(mode);
+		mb.add(vrstevniceMenu);
 		okno.setJMenuBar(mb);
 		
 		panel = new DrawingPanel();
@@ -226,36 +162,21 @@ public class Mapa_SP2021 {
 		okno.setLocationRelativeTo(null);//vycentrovat na obrazovce
 		okno.setVisible(true);
 		
-		/*Timer tm = new Timer();
-		tm.schedule(new TimerTask() {
-			@Override
-			public void run() {
-				panel.repaint();
-			}
-		}, 0, 20);*/
 	}
 
+	/**
+	 * Metoda pro nastavovani, po kolika metrech se budou vykreslovat vrstevnice
+	 */
 	private static void setVrstevnice() {
-		String[] nadmorskeVysky = {"50", "500", "5000"};
+		String[] nadmorskeVysky = {"10" ,"25" ,"50", "100", "250", "500", "1000", "2500", "5000", "Zadne"};
 		Frame frame = new Frame();
 		String s = (String)JOptionPane.showInputDialog(frame, "Po kolika metrech se budou zobrazovat vrstevnice:", "Nastaveni vrstevnic", JOptionPane.PLAIN_MESSAGE,null, nadmorskeVysky, "50");
-		if(s.equals("50")) {
-			panel.setKolikrat(1);
-		} else if(s.equals("500")) {
-			panel.setKolikrat(10);
-		} else if(s.equals("5000")) {
-			panel.setKolikrat(100);
+		if(s == null) {}
+		else if(s.equals("Zadne")) {
+			panel.setPoKolika(Integer.MAX_VALUE);
+		} else {
+			panel.setPoKolika(Integer.parseInt(s));
 		}
-	}
-
-	private static void setStoupani(ActionEvent e) {
-		data = stoupani;
-		panel.repaint();
-	}
-
-	private static void setPrevyseni(ActionEvent e) {
-		data = prevyseni;
-		panel.repaint();
 	}
 
 	/**
@@ -267,7 +188,7 @@ public class Mapa_SP2021 {
 			int[] pole = panel.upraveniHodnot(data);
 			PrintWriter pw = new PrintWriter(
 							new BufferedWriter(
-							new FileWriter("asciiArt.txt")));
+							new FileWriter("exports\\asciiArt.txt")));
 			for(int i = 0; i < vyska; i++) {
 				for(int j = 0; j < sirka; j++) {
 					int znak = (int)(pole[j + i * sirka]/50);
@@ -303,11 +224,17 @@ public class Mapa_SP2021 {
 				}
 			}
 			pw.close();
+			Frame frame = new Frame();
+			JOptionPane.showMessageDialog(frame ,"Soubor byl uspesne vytvoren.");
 		} catch (Exception ex) {
 			System.out.println("Doslo k chybe pri vytvareni ascii artu: " + ex.getMessage());
 		}
 	}
 
+	/**
+	 * Metoda exportuje mapu do PNG formatu
+	 * @param e kliknuti na menu item
+	 */
 	private static void exportPNG(ActionEvent e) {
 		int sirka, vyska;
 		Frame frame = new Frame();
@@ -321,19 +248,19 @@ public class Mapa_SP2021 {
 		};
 		int result = JOptionPane.showConfirmDialog(null, inputs, "Zadejte sirku a vysku obrazku", JOptionPane.PLAIN_MESSAGE);
 		if (result == JOptionPane.OK_OPTION) {
-			if(sirkaTF.getText().matches(".*[a-z].*") ||  sirkaTF.getText().matches(".*[A-Z].*") || sirkaTF.getText().matches(".*\\p{Punct}.*") || sirkaTF.getText().equals("")) {
+			if(sirkaTF.getText().matches(".*[a-z].*") ||  sirkaTF.getText().matches(".*[A-Z].*") || sirkaTF.getText().matches(".*\\p{Punct}.*") || sirkaTF.getText().trim().equals("")) {
 				JOptionPane.showMessageDialog(frame ,"V policku pro sirku nebyla cislice", "Error", JOptionPane.ERROR_MESSAGE);
 				exportPNG(e);
-			} else if(vyskaTF.getText().matches(".*[a-z].*") ||  vyskaTF.getText().matches(".*[A-Z].*") || vyskaTF.getText().matches(".*\\p{Punct}.*") || vyskaTF.getText().equals("")) {
+			} else if(vyskaTF.getText().matches(".*[a-z].*") ||  vyskaTF.getText().matches(".*[A-Z].*") || vyskaTF.getText().matches(".*\\p{Punct}.*") || vyskaTF.getText().trim().equals("")) {
 				JOptionPane.showMessageDialog(frame ,"V policku pro vysku nebyla cislice", "Error", JOptionPane.ERROR_MESSAGE);
 				exportPNG(e);
 			} else {
 				sirka = Integer.parseInt(sirkaTF.getText());
 				vyska = Integer.parseInt(vyskaTF.getText());
 				BufferedImage im = new BufferedImage(sirka, vyska, BufferedImage.TYPE_3BYTE_BGR);
-				panel.drawPicture(im.createGraphics(), sirka, vyska);
+				panel.drawPNG(im.createGraphics(), sirka, vyska);
 				try {
-					ImageIO.write(im, "png", new File("Mapa.png"));
+					ImageIO.write(im, "png", new File("exports\\Mapa.png"));
 				} catch (IOException ex) {
 					System.out.println("Doslo k chybe pri exportovani PNG obrazku" + ex.getMessage());
 				}
@@ -346,17 +273,20 @@ public class Mapa_SP2021 {
 	/**
 	 * Metoda zobrazuje v novem okne tukeyBox
 	 */
-	private static void zobrazTukeyBox() {
-		JFrame tukeyBox = new JFrame();
-		tukeyBox.setTitle("TukeyBox - Lukas Runt - A20B0226P");
+	private static void zobrazTurkeyBox() {
+		JFrame turkeyBox = new JFrame();
+		turkeyBox.setTitle("TurkeyBox - Lukas Runt - A20B0226P");
 		
-		ChartPanel tukeyBoxPanel = new ChartPanel(createTukeyBox(data));
+		ImageIcon img = new ImageIcon("data\\turkeyBox.png");
+		turkeyBox.setIconImage(img.getImage());
 		
-		tukeyBox.add(tukeyBoxPanel);
-		tukeyBox.pack();
-		tukeyBox.setLocationRelativeTo(null);
-		tukeyBox.setSize(new Dimension(600, 400));
-		tukeyBox.setVisible(true);
+		ChartPanel tukeyBoxPanel = new ChartPanel(createTurkeyBox(data));
+		
+		turkeyBox.add(tukeyBoxPanel);
+		turkeyBox.pack();
+		turkeyBox.setSize(new Dimension(600, 400));
+		turkeyBox.setLocationRelativeTo(null);
+		turkeyBox.setVisible(true);
 	}
 
 	/**
@@ -364,8 +294,7 @@ public class Mapa_SP2021 {
 	 * @param poleDat Nadmorske vysky
 	 * @return tukeyBox
 	 */
-	@SuppressWarnings("unchecked")
-	private static JFreeChart createTukeyBox(int[] poleDat) {
+	private static JFreeChart createTurkeyBox(int[] poleDat) {
 		DefaultBoxAndWhiskerCategoryDataset dataset = new DefaultBoxAndWhiskerCategoryDataset();
 		//List<int[]> values = Arrays.asList(poleDat);
 		//if Martin Cervenka see this vi von zulul
@@ -384,6 +313,7 @@ public class Mapa_SP2021 {
 		plot.setRangeGridlinePaint(Color.LIGHT_GRAY);
 		plot.setRangeGridlinesVisible(true);
 		plot.setOutlineVisible(true);
+		plot.setDomainCrosshairVisible(true);
 	
 		BoxAndWhiskerRenderer renderer = (BoxAndWhiskerRenderer)plot.getRenderer();
 		renderer.setMedianVisible(true);
@@ -415,8 +345,8 @@ public class Mapa_SP2021 {
 		
 		histogram.add(histogramPanel);
 		histogram.pack();
-		histogram.setLocationRelativeTo(null);
 		histogram.setSize(new Dimension(600, 400));
+		histogram.setLocationRelativeTo(null);
 		histogram.setVisible(true);
 	}
 
@@ -495,7 +425,7 @@ public class Mapa_SP2021 {
 		try {
 			PrintWriter pw = new PrintWriter(
 							new BufferedWriter(
-							new FileWriter("svgExport.svg")));
+							new FileWriter("exports\\svgExport.svg")));
 			pw.print(svg.getSVGElement());
 			pw.close();
 			Frame frame = new Frame();
